@@ -1,0 +1,173 @@
+<html>
+	<head>
+  	<title>Waypointz</title>
+  	<meta name="viewport" content="width=device-width, initial-scale=1">
+  	<style>
+  		#map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+  		[data-role=page]{
+			height: 100% !important; 
+			position:relative !important;
+		}
+		[data-role=footer]{
+			bottom:-45px; 
+			position:absolute !important; 
+			top: auto !important; 
+			width:100%;
+		} 
+  	</style>
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+	<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+	<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+  <script type="text/javascript">
+  	var places = [];
+
+  	var map;
+
+		function initialize() {
+		  var mapOptions = {
+		    zoom: 6
+		  };
+		  map = new google.maps.Map(document.getElementById('map-canvas'),
+		      mapOptions);
+
+		  // Try HTML5 geolocation
+		  if(navigator.geolocation) {
+		    navigator.geolocation.getCurrentPosition(function(position) {
+		      var pos = new google.maps.LatLng(position.coords.latitude,
+		                                       position.coords.longitude);
+
+		      var infowindow = new google.maps.InfoWindow({
+		        map: map,
+		        position: pos,
+		        content: 'Location found using HTML5.'
+		      });
+
+		      map.setCenter(pos);
+		    }, function() {
+		      handleNoGeolocation(true);
+		    });
+		  } else {
+		    // Browser doesn't support Geolocation
+		    handleNoGeolocation(false);
+		  }
+
+		  initialize_buttons();
+		}
+
+		function handleNoGeolocation(errorFlag) {
+		  if (errorFlag) {
+		    var content = 'Error: The Geolocation service failed.';
+		  } else {
+		    var content = 'Error: Your browser doesn\'t support geolocation.';
+		  }
+
+		  var options = {
+		    map: map,
+		    position: new google.maps.LatLng(60, 105),
+		    content: content
+		  };
+
+		  var infowindow = new google.maps.InfoWindow(options);
+		  map.setCenter(options.position);
+		}
+
+		google.maps.event.addDomListener(window, 'load', initialize);
+
+  	function initialize_buttons(){
+  		$('#add_pt').click(function(){
+  			$textbox = $('<input/>', {
+  					'type':"text",
+  					'data-clear-btn':"true"
+  				});
+  			$('ul').append($('<li/>', {
+  				'class':"ui-field-contain"
+  				}).append($textbox));
+  			$('ul').listview('refresh');
+  			$('ul').trigger('create');
+  		});
+
+  		$("#find_places").submit(function( event ) {
+  			places = [];
+  			$('input[type=text]').each(function() {
+  				places.push($(this).val());
+  			})
+  			console.log(places);
+  			event.preventDefault();
+  		});
+  	}
+  </script>
+  </head>
+  <body onload="initialize()" class="ui-mobile-viewpoint">
+  	<div data-role="page" id="pageone" data-theme="b">
+	  	<div data-role="header">
+	    	<h1>Waypointz</h1>
+	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
+	      <a href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+	  	<div role="main" class="ui-content">
+	  		<p>Welcome to Waypointz! Enter one or more places you would like to find:</p>
+	  		<form id="find_places">
+	  			<ul id="waypoints_list" data-role="listview" data-inset="true">
+	  				<li class="ui-field-contain">
+	  					<input type="text" data-clear-btn="true">
+	  				</li>
+	  			</ul>
+	  			<input id="add_pt" type="button" data-icon="plus" value="Add Place">
+					<button id="search" type="submit" class="ui-btn ui-corner-all ui-btn-a">Search</button>
+				</form>
+	  	</div>
+			<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagetwo" data-theme="b">
+			<div data-role="header">
+	    	<h1>Waypointz</h1>
+	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
+	      <a href="#pageone" class="map_btn">List View</a>
+	  	</div>
+			<div role="main" class="ui-content">
+				<p> Hi page 2 </p>
+				<div id="map-canvas"></div>
+				<!--<iframe
+				  width="90%"
+				  height="75%"
+				  frameborder="0" style="border:0"
+				  src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBYsUHre_vXt6svtFouVLEtUoPL4rdBwm0
+				    &q=Space+Needle,Seattle+WA">-->
+				</iframe>
+			</div>
+	  	<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagethree" data-theme="b">
+			<div data-role="header">
+	    	<h1>Waypointz</h1>
+	    	<a href="#pageone" class="list_btn" id="settings">List View</a>
+	      <a href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+			<div role="main" class="ui-content">
+				<form id="settings">
+	  			<ul id="settings_list" data-role="listview" data-inset="true">
+	  				<li class="ui-field-contain">
+	  					<label for="max_distance_settings">Distance radius (Miles)<label>
+	  					<input type="text" data-clear-btn="true" value="25">
+	  				</li>
+	  			</ul>
+					<button id="save_settings" type="submit" class="ui-btn ui-corner-all ui-btn-a">Save</button>
+			</div>
+	  	<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+
+
+  </body>
+</html>
+
