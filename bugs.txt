@@ -1,0 +1,15 @@
+Bugs
+
+* info path content not appearing and map is relocating
+
+$$$ info path white text
+ - probably the font css
+ - change map_canvas color?
+
+* markers do not reset on search
+ - clear markers in click handler
+
+* map doesn't initialize unless you load pagetwo first
+
+
+

@@ -1,0 +1,11 @@
+TODO
+- Add results page
+- - searched items are listed out 
+- - shows distance from current destination
+- - shows distance out of the way
+
+- Add destination 
+- - be able to search for items on your route
+
+- search by currently open
+- - opening_hours field of Place

@@ -1,19 +1,29 @@
+<!DOCTYPE html>
 <html>
 	<head>
   	<title>Waypointz</title>
   	<meta name="viewport" content="width=device-width, initial-scale=1">
   	<style>
   		#map-canvas {
+  			color:black;
         height: 100%;
         margin: 0px;
-        padding: 0px
+        padding: 0px;
+        text-shadow: none;
+      }
+      .map_wrapper{
+      	bottom: 30px;
+      	left: 0px;
+      	position: absolute;
+      	right: 0;
+      	top: 30px;
       }
   		[data-role=page]{
 			height: 100% !important; 
 			position:relative !important;
 		}
 		[data-role=footer]{
-			bottom:-45px; 
+			bottom:0px; 
 			position:absolute !important; 
 			top: auto !important; 
 			width:100%;
@@ -22,32 +32,29 @@
   <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
 	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
 	<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
-	<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+	<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=places"></script>
   <script type="text/javascript">
   	var places = [];
-
   	var map;
+  	var infoWindow;
+  	var service;
+  	var myLocation;
+  	var searches = [];
+  	var results = [];
 
 		function initialize() {
 		  var mapOptions = {
-		    zoom: 6
+		    zoom: 9
 		  };
 		  map = new google.maps.Map(document.getElementById('map-canvas'),
 		      mapOptions);
 
+		  infoWindow = new google.maps.InfoWindow();
+
 		  // Try HTML5 geolocation
 		  if(navigator.geolocation) {
 		    navigator.geolocation.getCurrentPosition(function(position) {
-		      var pos = new google.maps.LatLng(position.coords.latitude,
-		                                       position.coords.longitude);
-
-		      var infowindow = new google.maps.InfoWindow({
-		        map: map,
-		        position: pos,
-		        content: 'Location found using HTML5.'
-		      });
-
-		      map.setCenter(pos);
+		      handleGeolocation(position);
 		    }, function() {
 		      handleNoGeolocation(true);
 		    });
@@ -56,12 +63,20 @@
 		    handleNoGeolocation(false);
 		  }
 
+
+
 		  initialize_buttons();
+		}
+
+		function handleGeolocation(position){
+			myLocation = new google.maps.LatLng(position.coords.latitude,
+		                                   position.coords.longitude);
+		  map.setCenter(myLocation);
 		}
 
 		function handleNoGeolocation(errorFlag) {
 		  if (errorFlag) {
-		    var content = 'Error: The Geolocation service failed.';
+		    var content = 'Error: The Geolocation service failed. Please enable Geolocation';
 		  } else {
 		    var content = 'Error: Your browser doesn\'t support geolocation.';
 		  }
@@ -72,11 +87,13 @@
 		    content: content
 		  };
 
-		  var infowindow = new google.maps.InfoWindow(options);
+		  var infoWindow = new google.maps.InfoWindow(options);
 		  map.setCenter(options.position);
 		}
 
-		google.maps.event.addDomListener(window, 'load', initialize);
+
+
+		//google.maps.event.addDomListener(window, 'load', initialize);
 
   	function initialize_buttons(){
   		$('#add_pt').click(function(){
@@ -84,22 +101,67 @@
   					'type':"text",
   					'data-clear-btn':"true"
   				});
-  			$('ul').append($('<li/>', {
+  			$('#waypoints_list').append($('<li/>', {
   				'class':"ui-field-contain"
   				}).append($textbox));
-  			$('ul').listview('refresh');
-  			$('ul').trigger('create');
+  			$('#waypoints_list').listview('refresh');
+  			$('#waypoints_list').trigger('create');
   		});
 
   		$("#find_places").submit(function( event ) {
   			places = [];
-  			$('input[type=text]').each(function() {
+  			searches = [];
+  			$("#waypoints_list").find('input[type=text]').each(function() {
   				places.push($(this).val());
-  			})
-  			console.log(places);
+  				service = new google.maps.places.PlacesService(map);
+  				var radius = $("#radius").val() * 1609.34;
+  				var request = {
+  						location : myLocation,
+  						radius : radius,
+  						keyword : $(this).val(),
+  				}
+  				service.nearbySearch(request, callback);
+  			});
   			event.preventDefault();
   		});
   	}
+
+  function callback(results, status) {
+  	if (status == google.maps.places.PlacesServiceStatus.OK) {
+    	for (var i = 0; i < results.length; i++) {
+      	var place = results[i];
+      	console.log(place);
+      	searches.push(place);
+      	createMarker(place);
+    	}
+  	}
+  }
+
+  function createMarker(place) {
+	  var marker = new google.maps.Marker({
+	    map: map,
+	    position: place.geometry.location,
+	    icon: {
+	      // Star
+	      path: 'M 0,-24 6,-7 24,-7 10,4 15,21 0,11 -15,21 -10,4 -24,-7 -6,-7 z',
+	      fillColor: '#ffff00',
+	      fillOpacity: 1,
+	      scale: 1/4,
+	      strokeColor: '#bd8d2c',
+	      strokeWeight: 1
+	    }
+	  });
+	  google.maps.event.addListener(marker, 'click', function() {
+	    service.getDetails(place, function(result, status) {
+	      if (status != google.maps.places.PlacesServiceStatus.OK) {
+	        alert(status);
+	        return;
+	      }
+	      infoWindow.setContent(result.name);
+	      infoWindow.open(map, marker);
+	    });
+	  });
+	}
   </script>
   </head>
   <body onload="initialize()" class="ui-mobile-viewpoint">
@@ -131,16 +193,8 @@
 	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
 	      <a href="#pageone" class="map_btn">List View</a>
 	  	</div>
-			<div role="main" class="ui-content">
-				<p> Hi page 2 </p>
+			<div role="main" class="ui-content map_wrapper">
 				<div id="map-canvas"></div>
-				<!--<iframe
-				  width="90%"
-				  height="75%"
-				  frameborder="0" style="border:0"
-				  src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBYsUHre_vXt6svtFouVLEtUoPL4rdBwm0
-				    &q=Space+Needle,Seattle+WA">-->
-				</iframe>
 			</div>
 	  	<div data-role="footer">
 				<h1>GUI-on</h1>
@@ -157,7 +211,7 @@
 	  			<ul id="settings_list" data-role="listview" data-inset="true">
 	  				<li class="ui-field-contain">
 	  					<label for="max_distance_settings">Distance radius (Miles)<label>
-	  					<input type="text" data-clear-btn="true" value="25">
+	  					<input id="radius" type="text" data-clear-btn="true" value="25">
 	  				</li>
 	  			</ul>
 					<button id="save_settings" type="submit" class="ui-btn ui-corner-all ui-btn-a">Save</button>
