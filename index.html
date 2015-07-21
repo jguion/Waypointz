@@ -39,8 +39,10 @@
   	var infoWindow;
   	var service;
   	var myLocation;
-  	var searches = [];
-  	var results = [];
+  	var searchResults = [];
+  	var searchResultLocations = [];
+  	var SMResponse;
+  	var numResults = 0;
 
 		function initialize() {
 		  var mapOptions = {
@@ -107,10 +109,10 @@
   			$('#waypoints_list').listview('refresh');
   			$('#waypoints_list').trigger('create');
   		});
-
   		$("#find_places").submit(function( event ) {
   			places = [];
-  			searches = [];
+  			searchResults = [];
+  			searchResultLocations = [];
   			$("#waypoints_list").find('input[type=text]').each(function() {
   				places.push($(this).val());
   				service = new google.maps.places.PlacesService(map);
@@ -120,18 +122,23 @@
   						radius : radius,
   						keyword : $(this).val(),
   				}
-  				service.nearbySearch(request, callback);
+  				service.nearbySearch(request, nearbySearchCallback);
   			});
   			event.preventDefault();
   		});
+  		$("#view_results").click(function(){
+  			calculateDirections();
+  			window.location.href="#pagefour";
+  		})
   	}
 
-  function callback(results, status) {
+  function nearbySearchCallback(results, status) {
   	if (status == google.maps.places.PlacesServiceStatus.OK) {
     	for (var i = 0; i < results.length; i++) {
+    		numResults++;
       	var place = results[i];
-      	console.log(place);
-      	searches.push(place);
+      	searchResults.push(place);
+      	searchResultLocations.push(place.geometry.location);
       	createMarker(place);
     	}
   	}
@@ -162,6 +169,52 @@
 	    });
 	  });
 	}
+
+	function calculateDirections(){
+		var DMService = new google.maps.DistanceMatrixService();
+		var destination = $("#destination").val()
+		if(destination){
+				DMService.getDistanceMatrix({
+					origins: [myLocation],
+					destinations: searchResultLocations.concat([destination]),
+					travelMode: google.maps.TravelMode.DRIVING
+				}, calculateDirectionsWithDestinationCallback);
+
+				DMService.getDistanceMatrix({
+					origins: searchResultLocations,
+					destinations: [destination],
+					travelMode: google.maps.TravelMode.DRIVING
+				}, calculateDirectionsWithDestinationCallback);
+		}else{
+			DMService.getDistanceMatrix(
+			{
+				origins: [myLocation],
+				destinations: searchResultLocations,
+				travelMode: google.maps.TravelMode.DRIVING
+			}, calculateDirectionsCallback);
+		}
+	}
+
+	function calculateDirectionsCallback(response, status){
+		for (var i = 0; i < searchResults.length; i++) {
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[0].elements[i].duration.text;
+			var durationOutOfTheWay = "TODO";
+
+			var value = "Location: "+name+ ", Duration Away: "+durationAway;
+			var listItem = '<li class="ui-field-contain">'+value+'</li>'
+
+			$('#search_result_list').append($(listItem));
+		}
+  	$('#search_result_list').listview('refresh');
+  	$('#search_result_list').trigger('create');
+	}
+
+	function calculateDirectionsWithDestinationCallback(response, status){
+		console.log(response);
+	}
+
   </script>
   </head>
   <body onload="initialize()" class="ui-mobile-viewpoint">
@@ -180,7 +233,10 @@
 	  				</li>
 	  			</ul>
 	  			<input id="add_pt" type="button" data-icon="plus" value="Add Place">
-					<button id="search" type="submit" class="ui-btn ui-corner-all ui-btn-a">Search</button>
+	  			<label for="destination">Destination:</label>
+	  			<input id="destination" type="text" data-clear-btn="true">
+					<button id="search" href="#pagefour" type="submit" class="ui-btn ui-corner-all ui-btn-a">Search</button>
+					<button id="view_results"class="ui-btn ui-btn-a">View Results</button>
 				</form>
 	  	</div>
 			<div data-role="footer">
@@ -211,12 +267,27 @@
 	  			<ul id="settings_list" data-role="listview" data-inset="true">
 	  				<li class="ui-field-contain">
 	  					<label for="max_distance_settings">Distance radius (Miles)<label>
-	  					<input id="radius" type="text" data-clear-btn="true" value="25">
+	  					<input id="radius" type="text" data-clear-btn="true" value="15">
 	  				</li>
 	  			</ul>
 					<button id="save_settings" type="submit" class="ui-btn ui-corner-all ui-btn-a">Save</button>
 			</div>
 	  	<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagefour" data-theme="b">
+	  	<div data-role="header">
+	    	<h1>Waypointz</h1>
+	    	<a href="#pageone" class="settings_btn" id="settings">Home</a>
+	      <a href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+	  	<div role="main" class="ui-content">
+	  		<p>Here's what we found:</p>
+  			<ul id="search_result_list" data-role="listview" data-inset="true">
+  			</ul>
+	  	</div>
+			<div data-role="footer">
 				<h1>GUI-on</h1>
 			</div>
 		</div>

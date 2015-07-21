@@ -9,3 +9,10 @@ TODO
 
 - search by currently open
 - - opening_hours field of Place
+
+-persist settings
+
+
+
+
+
