@@ -270,16 +270,17 @@
 			var tripTotalDuration = toPitDuration.value + toDestDuration.value;
 			var durationOutOfWay = tripTotalDuration - routeDuration.value;
 
-			var value = "Location: "+name+ ", Duration Away: "+toPitDuration.text +
-									", Duration to Destination: "+toDestDuration.text+
-									", Distance out of the way: "+valueToTime(durationOutOfWay);
-			var listItem = '<li class="ui-field-contain">'+value+'</li>'
+			var value = '<td>'+name+ '</td>' +
+									'<td>'+toPitDuration.text +'</td>' +
+									'<td>'+toDestDuration.text+'</td>' +
+									'<td>'+valueToTime(durationOutOfWay); +'</td>';
+			var tableRow = '<tr>'+value+'</tr>'
 
 			console.log(value);
 
 			$("#durationToDest").text("Duration to destination: "+routeDuration.text);
 
-			$('#search_result_list').append($(listItem));
+			$('#search_result_list').append($(tableRow));
 		}
 	}
 
@@ -365,8 +366,18 @@
 	  	<div role="main" class="ui-content">
 	  		<p>Here's what we found:</p>
 	  		<div id="durationToDest" class="ui-field-contain"></div>
-  			<ul id="search_result_list" data-role="listview" data-inset="true">
-  			</ul>
+  			<table class="ui-responsive" id="search_result_list" data-role="table" data-mode="column">
+  				<thead>
+  					<tr>
+  						<th>Location</th>
+  						<th>Duration Away</th>
+  						<th>Duration From Destination</th>
+  						<th>Duration Out of the Way</th>
+  					</tr>
+  				</thead>
+  				<tbody>
+  				</tbody>
+  			</table>
 	  	</div>
 			<div data-role="footer">
 				<h1>GUI-on</h1>
