@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-  	<title>Waypointz</title>
+  	<title>Pitstop</title>
   	<meta name="viewport" content="width=device-width, initial-scale=1">
   	<style>
   		#map-canvas {
@@ -37,21 +37,25 @@
   	var places = [];
   	var map;
   	var infoWindow;
+  	var directionsDisplay;
   	var service;
   	var myLocation;
   	var searchResults = [];
   	var searchResultLocations = [];
   	var SMResponse;
   	var numResults = 0;
+  	var routeMap = {}
+  	var routeDuration;
 
 		function initialize() {
 		  var mapOptions = {
 		    zoom: 9
 		  };
-		  map = new google.maps.Map(document.getElementById('map-canvas'),
-		      mapOptions);
-
+		  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
 		  infoWindow = new google.maps.InfoWindow();
+		  directionsDisplay = new google.maps.DirectionsRenderer();
+			
+			directionsDisplay.setMap(map);
 
 		  // Try HTML5 geolocation
 		  if(navigator.geolocation) {
@@ -128,6 +132,7 @@
   		});
   		$("#view_results").click(function(){
   			calculateDirections();
+  			//buildList();
   			window.location.href="#pagefour";
   		})
   	}
@@ -174,17 +179,25 @@
 		var DMService = new google.maps.DistanceMatrixService();
 		var destination = $("#destination").val()
 		if(destination){
+				var directionsService = new google.maps.DirectionsService();
+
+				directionsService.route({
+					origin:myLocation,
+					destination:destination,
+					travelMode: google.maps.TravelMode.DRIVING
+				}, showRouteCallback);
+
 				DMService.getDistanceMatrix({
 					origins: [myLocation],
 					destinations: searchResultLocations.concat([destination]),
 					travelMode: google.maps.TravelMode.DRIVING
-				}, calculateDirectionsWithDestinationCallback);
+				}, calculateDirectionsToPitstopCallback);
 
 				DMService.getDistanceMatrix({
 					origins: searchResultLocations,
 					destinations: [destination],
 					travelMode: google.maps.TravelMode.DRIVING
-				}, calculateDirectionsWithDestinationCallback);
+				}, calculateDirectionsToDestinationCallback);
 		}else{
 			DMService.getDistanceMatrix(
 			{
@@ -195,14 +208,20 @@
 		}
 	}
 
+	function showRouteCallback(response, status){
+		if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
+      routeDuration = response.routes[0].legs[0].duration;
+    }
+	}
+
 	function calculateDirectionsCallback(response, status){
 		for (var i = 0; i < searchResults.length; i++) {
 			var item = searchResults[i];
 			var name = item.name;
-			var durationAway = response.rows[0].elements[i].duration.text;
-			var durationOutOfTheWay = "TODO";
+			var durationAway = response.rows[0].elements[i].duration;
 
-			var value = "Location: "+name+ ", Duration Away: "+durationAway;
+			var value = "Location: "+name+ ", Duration Away: "+durationAway.text;
 			var listItem = '<li class="ui-field-contain">'+value+'</li>'
 
 			$('#search_result_list').append($(listItem));
@@ -211,8 +230,69 @@
   	$('#search_result_list').trigger('create');
 	}
 
-	function calculateDirectionsWithDestinationCallback(response, status){
-		console.log(response);
+	function calculateDirectionsToPitstopCallback(response, status){
+		var pitstop_map = [];
+		for (var i = 0; i < searchResults.length; i++) {
+			var pitstop = {};
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[0].elements[i].duration;
+			pitstop.name = name;
+			pitstop.duration = durationAway;
+			pitstop_map.push(pitstop)
+		}
+		routeMap.toPitstop = pitstop_map;
+	}
+
+	function calculateDirectionsToDestinationCallback(response, status){
+		var pitstop_map = [];
+		for (var i = 0; i < searchResults.length; i++) {
+			var pitstop = {};
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[i].elements[0].duration;
+			pitstop.name = name;
+			pitstop.duration = durationAway;
+			pitstop_map.push(pitstop)
+		}
+		routeMap.toDestination = pitstop_map;
+	}
+
+	function buildList(){
+		for (var i = 0; i < searchResults.length; i++) {
+			var toPitstop = routeMap.toPitstop[i];
+			var toDestination = routeMap.toDestination[i];
+
+			var name = toPitstop.name;
+			var toPitDuration = toPitstop.duration;
+			var toDestDuration = toDestination.duration;
+
+			var tripTotalDuration = toPitDuration.value + toDestDuration.value;
+			var durationOutOfWay = tripTotalDuration - routeDuration.value;
+
+			var value = "Location: "+name+ ", Duration Away: "+toPitDuration.text +
+									", Duration to Destination: "+toDestDuration.text+
+									", Distance out of the way: "+valueToTime(durationOutOfWay);
+			var listItem = '<li class="ui-field-contain">'+value+'</li>'
+
+			console.log(value);
+
+			$("#durationToDest").text("Duration to destination: "+routeDuration.text);
+
+			$('#search_result_list').append($(listItem));
+		}
+	}
+
+	function valueToTime(value){
+		var text = "";
+		if(value < 3600){
+			text = Math.round(value / 60) + " mins";
+		}else{
+			var hours = value / 3600;
+			var minutes = (value % 3600) / 60;
+			text = Math.round(hours) + " hour "+ Math.round(minutes)+ " mins"
+		}
+		return text;
 	}
 
   </script>
@@ -220,12 +300,12 @@
   <body onload="initialize()" class="ui-mobile-viewpoint">
   	<div data-role="page" id="pageone" data-theme="b">
 	  	<div data-role="header">
-	    	<h1>Waypointz</h1>
+	    	<h1>Pitstop</h1>
 	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
 	      <a href="#pagetwo" class="map_btn">Map View</a>
 	  	</div>
 	  	<div role="main" class="ui-content">
-	  		<p>Welcome to Waypointz! Enter one or more places you would like to find:</p>
+	  		<p>Welcome to Pitstop! Enter one or more places you would like to find:</p>
 	  		<form id="find_places">
 	  			<ul id="waypoints_list" data-role="listview" data-inset="true">
 	  				<li class="ui-field-contain">
@@ -245,7 +325,7 @@
 		</div>
 		<div data-role="page" id="pagetwo" data-theme="b">
 			<div data-role="header">
-	    	<h1>Waypointz</h1>
+	    	<h1>Pitstop</h1>
 	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
 	      <a href="#pageone" class="map_btn">List View</a>
 	  	</div>
@@ -258,7 +338,7 @@
 		</div>
 		<div data-role="page" id="pagethree" data-theme="b">
 			<div data-role="header">
-	    	<h1>Waypointz</h1>
+	    	<h1>Pitstop</h1>
 	    	<a href="#pageone" class="list_btn" id="settings">List View</a>
 	      <a href="#pagetwo" class="map_btn">Map View</a>
 	  	</div>
@@ -267,7 +347,7 @@
 	  			<ul id="settings_list" data-role="listview" data-inset="true">
 	  				<li class="ui-field-contain">
 	  					<label for="max_distance_settings">Distance radius (Miles)<label>
-	  					<input id="radius" type="text" data-clear-btn="true" value="15">
+	  					<input id="radius" type="text" data-clear-btn="true" value="60">
 	  				</li>
 	  			</ul>
 					<button id="save_settings" type="submit" class="ui-btn ui-corner-all ui-btn-a">Save</button>
@@ -278,12 +358,13 @@
 		</div>
 		<div data-role="page" id="pagefour" data-theme="b">
 	  	<div data-role="header">
-	    	<h1>Waypointz</h1>
+	    	<h1>Pitstop</h1>
 	    	<a href="#pageone" class="settings_btn" id="settings">Home</a>
 	      <a href="#pagetwo" class="map_btn">Map View</a>
 	  	</div>
 	  	<div role="main" class="ui-content">
 	  		<p>Here's what we found:</p>
+	  		<div id="durationToDest" class="ui-field-contain"></div>
   			<ul id="search_result_list" data-role="listview" data-inset="true">
   			</ul>
 	  	</div>
