@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+	<head>
+  	<title>Pitstop</title>
+  	<meta name="viewport" content="width=device-width, initial-scale=1">
+  	<style>
+  		#map-canvas {
+  			color:black;
+        height: 100%;
+        margin: 0px;
+        padding: 0px;
+        text-shadow: none;
+      }
+      .map_wrapper{
+      	bottom: 30px;
+      	left: 0px;
+      	position: absolute;
+      	right: 0;
+      	top: 30px;
+      }
+  		[data-role=page]{
+			height: 100% !important; 
+			position:relative !important;
+		}
+		[data-role=footer]{
+			bottom:0px; 
+			position:absolute !important; 
+			top: auto !important; 
+			width:100%;
+		} 
+  	</style>
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+	<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+	<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=places"></script>
+  <script type="text/javascript">
+  	var places = [];
+  	var map;
+  	var infoWindow;
+  	var directionsDisplay;
+  	var service;
+  	var myLocation;
+  	var searchResults = [];
+  	var searchResultLocations = [];
+  	var SMResponse;
+  	var numResults = 0;
+  	var routeMap = {}
+  	var routeDuration;
+  	var ZOOM = 9;
+
+		function initialize() {
+		  var mapOptions = {
+		    zoom: ZOOM
+		  };
+		  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+		  infoWindow = new google.maps.InfoWindow();
+		  directionsDisplay = new google.maps.DirectionsRenderer();
+			
+			directionsDisplay.setMap(map);
+
+		  // Try HTML5 geolocation
+		  if(navigator.geolocation) {
+		    navigator.geolocation.getCurrentPosition(function(position) {
+		      handleGeolocation(position);
+		    }, function() {
+		      handleNoGeolocation(true);
+		    });
+		  } else {
+		    // Browser doesn't support Geolocation
+		    handleNoGeolocation(false);
+		  }
+
+		  initialize_buttons();
+		}
+
+		google.maps.event.addDomListener(window, 'load', initialize);
+
+		//because of Google maps issue, resizes the map when pagetwo map is shown
+		$( document ).on( "pageshow", "#pagetwo", function( event ) {
+		 	console.log("fixing?")
+			google.maps.event.trigger(map, 'resize');
+			map.setCenter(myLocation);
+			map.setZoom(ZOOM);
+		});
+
+		function handleGeolocation(position){
+			myLocation = new google.maps.LatLng(position.coords.latitude,
+		                                   position.coords.longitude);
+		  map.setCenter(myLocation);
+		}
+
+		function handleNoGeolocation(errorFlag) {
+		  if (errorFlag) {
+		    var content = 'Error: The Geolocation service failed. Please enable Geolocation';
+		  } else {
+		    var content = 'Error: Your browser doesn\'t support geolocation.';
+		  }
+
+		  alert(content);
+		}
+
+  	function initialize_buttons(){
+  		$('#add_pt').click(function(){
+  			$textbox = $('<input/>', {
+  					'type':"text",
+  					'data-clear-btn':"true"
+  				});
+  			$('#waypoints_list').append($('<li/>', {
+  				'class':"ui-field-contain"
+  				}).append($textbox));
+  			$('#waypoints_list').listview('refresh');
+  			$('#waypoints_list').trigger('create');
+  		});
+  		$("#find_places").submit(function( event ) {
+  			console.log("Find Place . submit");
+  			alert("FIND");
+  			places = [];
+  			searchResults = [];
+  			searchResultLocations = [];
+  			$("#waypoints_list").find('input[type=text]').each(function() {
+  				places.push($(this).val());
+  				service = new google.maps.places.PlacesService(map);
+  				var radius = $("#radius").val() * 1609.34;
+  				var request = {
+  						location : myLocation,
+  						radius : radius,
+  						keyword : $(this).val(),
+  				}
+  				service.nearbySearch(request, nearbySearchCallback);
+  			});
+  			event.preventDefault();
+  		}, test);
+  		$("#view_results").click(function(){
+  			calculateDirections();
+  			//buildList();
+  			window.location.href="#pagefour";
+  		});
+  		$("#view_results2").click(function(){
+  			buildList();
+  			window.location.href="#pagefour";
+  		});
+  	}
+
+  function nearbySearchCallback(results, status) {
+  	if (status == google.maps.places.PlacesServiceStatus.OK) {
+    	for (var i = 0; i < results.length; i++) {
+    		numResults++;
+      	var place = results[i];
+      	searchResults.push(place);
+      	searchResultLocations.push(place.geometry.location);
+      	createMarker(place);
+    	}
+  	}
+  }
+
+  function createMarker(place) {
+	  var marker = new google.maps.Marker({
+	    map: map,
+	    position: place.geometry.location,
+	    icon: {
+	      // Star
+	      path: 'M 0,-24 6,-7 24,-7 10,4 15,21 0,11 -15,21 -10,4 -24,-7 -6,-7 z',
+	      fillColor: '#ffff00',
+	      fillOpacity: 1,
+	      scale: 1/4,
+	      strokeColor: '#bd8d2c',
+	      strokeWeight: 1
+	    }
+	  });
+	  google.maps.event.addListener(marker, 'click', function() {
+	    service.getDetails(place, function(result, status) {
+	      if (status != google.maps.places.PlacesServiceStatus.OK) {
+	        alert(status);
+	        return;
+	      }
+	      infoWindow.setContent(result.name);
+	      infoWindow.open(map, marker);
+	    });
+	  });
+	}
+
+	function calculateDirections(){
+		console.log("recalculating");
+		alert("CALCULATE");
+		var DMService = new google.maps.DistanceMatrixService();
+		var destination = $("#destination").val()
+		if(destination){
+				var directionsService = new google.maps.DirectionsService();
+
+				directionsService.route({
+					origin:myLocation,
+					destination:destination,
+					travelMode: google.maps.TravelMode.DRIVING
+				}, showRouteCallback);
+
+				DMService.getDistanceMatrix({
+					origins: [myLocation],
+					destinations: searchResultLocations.concat([destination]),
+					travelMode: google.maps.TravelMode.DRIVING
+				}, calculateDirectionsToPitstopCallback);
+
+				DMService.getDistanceMatrix({
+					origins: searchResultLocations,
+					destinations: [destination],
+					travelMode: google.maps.TravelMode.DRIVING
+				}, calculateDirectionsToDestinationCallback);
+		}else{
+			DMService.getDistanceMatrix(
+			{
+				origins: [myLocation],
+				destinations: searchResultLocations,
+				travelMode: google.maps.TravelMode.DRIVING
+			}, calculateDirectionsCallback);
+		}
+	}
+
+	function showRouteCallback(response, status){
+		if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
+      routeDuration = response.routes[0].legs[0].duration;
+    }
+	}
+
+	function calculateDirectionsCallback(response, status){
+		console.log("recalculating CB");
+		for (var i = 0; i < searchResults.length; i++) {
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[0].elements[i].duration;
+
+			var value = "Location: "+name+ ", Duration Away: "+durationAway.text;
+			var listItem = '<li class="ui-field-contain">'+value+'</li>'
+
+			$('#search_result_list').append($(listItem));
+		}
+  	$('#search_result_list').listview('refresh');
+  	$('#search_result_list').trigger('create');
+	}
+
+	function calculateDirectionsToPitstopCallback(response, status){
+		var pitstop_map = [];
+		for (var i = 0; i < searchResults.length; i++) {
+			var pitstop = {};
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[0].elements[i].duration;
+			pitstop.name = name;
+			pitstop.duration = durationAway;
+			pitstop_map.push(pitstop)
+		}
+		routeMap.toPitstop = pitstop_map;
+	}
+
+	function calculateDirectionsToDestinationCallback(response, status){
+		var pitstop_map = [];
+		for (var i = 0; i < searchResults.length; i++) {
+			var pitstop = {};
+			var item = searchResults[i];
+			var name = item.name;
+			var durationAway = response.rows[i].elements[0].duration;
+			pitstop.name = name;
+			pitstop.duration = durationAway;
+			pitstop_map.push(pitstop)
+		}
+		routeMap.toDestination = pitstop_map;
+	}
+
+	function buildList(){
+		console.log("bob the builder");
+		for (var i = 0; i < searchResults.length; i++) {
+			var toPitstop = routeMap.toPitstop[i];
+			var toDestination = routeMap.toDestination[i];
+
+			var name = toPitstop.name;
+			var toPitDuration = toPitstop.duration;
+			var toDestDuration = toDestination.duration;
+
+			var tripTotalDuration = toPitDuration.value + toDestDuration.value;
+			var durationOutOfWay = tripTotalDuration - routeDuration.value;
+
+			var value = '<td>'+name+ '</td>' +
+									'<td>'+toPitDuration.text +'</td>' +
+									'<td>'+toDestDuration.text+'</td>' +
+									'<td>'+valueToTime(durationOutOfWay); +'</td>';
+			var tableRow = '<tr>'+value+'</tr>'
+
+			console.log(value);
+
+			$("#durationToDest").text("Duration to destination: "+routeDuration.text);
+
+			$('#search_result_list').append($(tableRow));
+		}
+	}
+
+	function valueToTime(value){
+		var text = "";
+		if(value < 3600){
+			text = Math.round(value / 60) + " mins";
+		}else{
+			var hours = value / 3600;
+			var minutes = (value % 3600) / 60;
+			text = Math.round(hours) + " hour "+ Math.round(minutes)+ " mins"
+		}
+		return text;
+	}
+
+	function test(){
+		console.log("CALL ME MAYBE");
+	}
+
+  </script>
+  </head>
+  <body class="ui-mobile-viewpoint">
+  	<div data-role="page" id="pageone" data-theme="b">
+	  	<div data-role="header">
+	    	<h1>Pitstop</h1>
+	    	<a href="#pagethree" class="settings_btn" id="settings">Settings</a>
+	      <a id="pagetwo" href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+	  	<div role="main" class="ui-content">
+	  		<p>Welcome to Pitstop! Enter one or more places you would like to find:</p>
+	  		<form id="find_places">
+	  			<ul id="waypoints_list" data-role="listview" data-inset="true">
+	  				<li class="ui-field-contain">
+	  					<input type="text" data-clear-btn="true">
+	  				</li>
+	  			</ul>
+	  			<input id="add_pt" type="button" data-icon="plus" value="Add Place">
+	  			<label for="destination">Destination:</label>
+	  			<input id="destination" type="text" data-clear-btn="true">
+					<button id="search" href="#pagefour" type="submit" class="ui-btn ui-corner-all ui-btn-a">Search</button>
+					<button id="view_results"class="ui-btn ui-btn-a">View Results</button>
+				</form>
+	  	</div>
+			<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagetwo" data-theme="b">
+			<div data-role="header">
+	    	<h1>Pitstop</h1>
+	    	<a href="#pageone" class="settings_btn" id="settings">Home</a>
+	      <a href="#pagefour" class="map_btn">Results</a>
+	  	</div>
+			<div role="main" class="ui-content map_wrapper">
+				<div id="map-canvas"></div>
+			</div>
+	  	<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagethree" data-theme="b">
+			<div data-role="header">
+	    	<h1>Pitstop</h1>
+	    	<a href="#pageone" class="list_btn" id="settings">List View</a>
+	      <a href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+			<div role="main" class="ui-content">
+				<form id="settings">
+	  			<ul id="settings_list" data-role="listview" data-inset="true">
+	  				<li class="ui-field-contain">
+	  					<label for="max_distance_settings">Distance radius (Miles)<label>
+	  					<input id="radius" type="text" data-clear-btn="true" value="60">
+	  				</li>
+	  			</ul>
+					<button id="save_settings" type="submit" class="ui-btn ui-corner-all ui-btn-a">Save</button>
+			</div>
+	  	<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+		<div data-role="page" id="pagefour" data-theme="b">
+	  	<div data-role="header">
+	    	<h1>Pitstop</h1>
+	    	<a href="#pageone" class="settings_btn" id="settings">Home</a>
+	      <a href="#pagetwo" class="map_btn">Map View</a>
+	  	</div>
+	  	<div role="main" class="ui-content">
+	  		<button id="view_results2"class="ui-btn ui-btn-a">View Results</button>
+	  		<p>Here's what we found:</p>
+	  		<div id="durationToDest" class="ui-field-contain"></div>
+  			<table class="ui-responsive" id="search_result_list" data-role="table" data-mode="column">
+  				<thead>
+  					<tr>
+  						<th>Location</th>
+  						<th>Duration Away</th>
+  						<th>Duration From Destination</th>
+  						<th>Duration Out of the Way</th>
+  					</tr>
+  				</thead>
+  				<tbody>
+  				</tbody>
+  			</table>
+	  	</div>
+			<div data-role="footer">
+				<h1>GUI-on</h1>
+			</div>
+		</div>
+
+
+  </body>
+</html>
+
